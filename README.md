@@ -15,7 +15,7 @@ This wiki provides comprehensive documentation and guides for the Proof-of-Conce
 
 |      Author      | Created On | 
 |------------------|------------|
-| Priyanshu Yadav  | 2024-06-05 | 
+| Priyanshu Yadav  | 11/11/2024 | 
 ## Introduction
 
 This project is a proof-of-concept (POC) for an attendance API. It demonstrates the core functionality and design of the API, providing a foundation for further development and integration.

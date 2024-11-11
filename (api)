@@ -1,0 +1,289 @@
+# Attendance-Api
+
+| Author | Created on | Version  | Last updated by | Last edited on |
+|--------|------------|----------|-----------------|----------------|
+| Aditya Suryavanshi   | 05-06-24   | version 1 | Aditya Suryavanshi         | 05-06-24       |
+
+## Table of Content
+
+- Purpose
+- Pre-requisite
+- System Requirement
+- Dependencies
+- Important Ports
+- Architecture
+- Dataflow
+- Step-by-step installation of [application]
+- Application Configuration Changes
+- Application Build
+- How to run Api in the background
+- Monitoring
+- High Availability
+- Troubleshooting
+- Endpoints Information
+- Contact information
+- References
+
+## Purpose
+Attendance api is a Rest Api which is responsible for attendance related transaction in OT microservice . 
+
+## Pre-requisites
+
+- [Postgres](https://www.postgresql.org/)
+- [Redis](https://redis.io/)
+- [Poetry](https://python-poetry.org/)
+- [Liquibase](https://www.liquibase.com/)
+
+Poetry will be used as package manager to install specific versions module on dependencies to run the attendance API.
+
+Liquibase is used for schema management
+
+## System Requirement 
+
+| Requirement | Description |
+|-------------|-------------|
+| Operating system | Linux , or Windows |
+| Hardware | Atleast 8gb of ram is preferable for smooth workflow |
+
+
+
+## Dependencies
+
+### Build time Dependencies
+
+| Name              | Version           | Description                                                        |
+| ----------------- | ----------------- | ------------------------------------------------------------------ |
+| Poetry   | 1.83 | Required for Python modules                          |
+| Redis | 7.0.12     | Install redis for data caching                         |
+| Postgres | 16.3 | Required for creating database with which api will interact |
+| Liquibase | 4.28 | for Schema Management |
+
+
+### Run Time Dependency
+
+| Name | Version | Description |
+|------|---------|-------------|
+| python | 3.11 | application is built on this version only |
+
+## Important Ports
+
+| Inbound Traffic | Description |
+|-----------------|-------------|
+| 8080 | Used by Api |
+
+## Architecture
+
+![image](https://github.com/Suryavanshiaditya1999/attendance-doc/assets/137984887/c1b9eeac-3adc-4b59-bf57-f39e8f7e338a)
+
+## Dataflow
+
+- The application first checks Redis to see if the requested data is already cached.
+- Cache Hit: If the data is found in Redis, it is returned immediately, reducing the need for a database query.
+- Cache Miss: If the data is not found in Redis, the application proceeds to query the PostgreSQL database.
+
+## Step-by-step installation of [application]
+
+### Step1: Installation of software Dependencies
+
+#### Install Postgres : database used in api 
+
+``` 
+sudo apt install postgresql 
+```
+
+#### Install Redis : for caching of database
+
+``` 
+curl -fsSL https://packages.redis.io/gpg | sudo gpg --dearmor -o /usr/share/keyrings/redis-archive-keyring.gpg
+
+echo "deb [signed-by=/usr/share/keyrings/redis-archive-keyring.gpg] https://packages.redis.io/deb $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/redis.list
+
+sudo apt-get update
+sudo apt-get install redis 
+```
+
+#### Poetry : to install python modules
+
+```
+curl -sSL https://install.python-poetry.org | python3 -
+export PATH="$HOME/.local/bin:$PATH"
+source ~/.bashrc
+```
+
+#### Liquibase : for schema management of database
+
+```
+wget https://github.com/liquibase/liquibase/releases/download/v4.28.0/liquibase-4.28.0.tar.gz
+tar -xvzf liquibase-4.28.0.tar.gz
+sudo mv liquibase-4.28.0 /usr/local/bin/liquibase
+source ~/.bashrc
+```
+
+
+### Run time Dependency
+
+```
+sudo apt install -y python3.11
+```
+
+### Step2: Application Configuration Changes
+
+- Clone the repo
+- Change configuration inside config.yaml , instead of the ip mentioned , use your own server ip or if you are running on localhost , replace ip with localhost 
+- Change properties inside liquibase.properties , again replace the ip mentioned with your own server ip , or if you are running on localhost , replace ip with localhost
+- Create username and password inside postgres , since the postgres user is already created we are going to alter it only.
+
+``` 
+sudo -i -u postgres
+psql
+ALTER USER postgres WITH PASSWORD 'password';
+``` 
+
+### Step3: Application Build
+
+For building the application, we can use make command with our [Makefile](https://github.com/OT-MICROSERVICES/attendance-api/blob/main/Makefile). But as first and foremost step, we need to install all the dependencies and packages using poetry. We can simple use make command for it.
+
+``` 
+make build 
+```
+
+![image](https://github.com/mygurkulam-p9/documentation/assets/137984887/f4c82c39-9dff-43b3-9c7e-61dda2cb30a4)
+
+
+Now we need to run migrations to create database, schema etc . 
+
+``` 
+make run-migrations
+```
+![image](https://github.com/mygurkulam-p9/documentation/assets/137984887/75a328cf-f150-41bc-9b71-fc37af92c436)
+
+
+Now lets create python environment and go into it 
+```
+python3 -m venv myenv
+source myenv/bin/activate
+```
+
+![image](https://github.com/mygurkulam-p9/documentation/assets/137984887/97c40092-0fbb-4233-9a7f-a2651873de48)
+
+
+Now lets initialize the application by below command 
+```
+gunicorn app:app --log-config log.conf -b 0.0.0.0:8080
+```
+
+![image](https://github.com/mygurkulam-p9/documentation/assets/137984887/cb23b239-64c5-4406-b58e-a570a5552325)
+
+
+To check wether the api is working or not we can use below command , replace localhost with your ip address if you are running the api on cloud
+```
+ http://localhost:8080/apidocs
+```
+
+## How to run Api in the background
+
+- create a service for api 
+
+```
+sudo nano /etc/system/system/attendance-api.service
+```
+
+```
+[Unit]
+Description=My API Service
+After=network.target
+
+[Service]
+User=aditya
+Group=aditya
+WorkingDirectory=/home/aditya/attendance-api/attendance-api
+Environment=PATH=/home/aditya/attendance-api/attendance-api/venv/bin:/usr/bin
+ExecStart=/home/aditya/attendance-api/attendance-api/venv/bin/gunicorn app:app --log-config /home/aditya/attendance-api/attendance-api/log.conf -b 0.0.0.0:8080
+Restart=always
+RestartSec=3
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
+```
+
+- What this service file is doing ?
+
+It is going into the working directory of .. /home/aditya/attendance-api/attendance-api .
+And then creating a python environment there /home/aditya/attendance-api/attendance-api/venv/bin:/usr/bin .
+And then executing this command 
+gunicorn app:app --log-config /home/aditya/attendance-api/attendance-api/log.conf -b 0.0.0.0:8080 .
+So this command we are executing in our python environment
+
+
+#### Start the Attendance service
+
+```
+sudo systemctl start attendance-api.service
+```
+
+
+## Monitoring
+
+Api monitoring is crucial to analyze whether the api is working correctly or not , we can monitor logs that are generating , we can see what is the throughput of our api , we can detect and prevent unauthorized person trying to access our website .
+
+#### Tools to Monitor API's
+
+- Postman : Postman is a good tool for monitoring and testing our Api , it allows us to automate tests to check the health and performance of our API's. By setting up monitors , we can regularly test that our Api are working properly or not , this helps maintain high reliability
+- CloudWatch : If we are using Api Gateway service of aws , which can manage and create api's , we can fetch the logs that are generating from it and store it into cloudwatch.
+- Kibana - All the logs that Api is generating which contains relevant information about its operations, requests, responses, errors, etc can be viewed using visualization tool kibana
+
+
+## High Availability
+
+We can deploy our api on multiple servers and then use load balancer for distributing traffic among different servers so that there won't one one single point of failure , means that if one instance will fail our whole Api will not go down .
+
+We can acheive this by attaching load balancer with multiple servers running Api , and then these Api are storing data into one database only , this database can be AWS managed database or database that you have set up on some server . 
+
+## Troubleshooting
+
+if you don't create python environment and try to run api without it you might encounter this problem 
+
+![image](https://github.com/Suryavanshiaditya1999/attendance-doc/assets/137984887/f543c773-e311-4336-8a07-0a51a21d15c5)
+
+#### To solve this create virtual environment in python
+
+```
+source <your_environment_name>/bin/activate
+```
+
+
+
+## Endpoints Information
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| /metrics | GET | Application healthcheck and performance metrics are available on this endpoint |
+| /apidocs | GET | Swagger endpoint for the application API documentation and their data models |
+| /api/v1/attendance/create | POST | Data creation endpoint which accepts certain JSON body to add attendance information in database |
+| /api/v1/attendance/search | GET | Endpoint for searching data information using the params in the URL | 
+| /api/v1/attendance/search/all | GET | Endpoint for searching all information across the system |
+| /api/v1/attendance/health | GET | Endpoint for providing shallow healthcheck information about application health and readiness | 
+| /api/v1/attendance/health/detail | GET | Endpoint for providing detailed health check about dependencies as well like - PostgresSQL and Redis | 
+
+
+## Conclusion 
+
+Following these steps, you will be able to set up attendance api , and then after checking the endpoints you can check wether the api is working or not .
+
+## Contact information
+
+| Name | Email address | 
+|--------|------------|
+| Aditya Suryavanshi   | aditya.suryavanshi.snaatak@mygurukulam.co   | 
+
+
+## References
+
+| Links | Descriptions | 
+|--------|------------|
+| https://www.liquibase.com/download  |  For Installing Liquibase | 
+| https://www.postgresql.org/download/linux/ubuntu/  | Postgress Istallation  | 
+| https://redis.io/docs/latest/operate/oss_and_stack/install/install-redis/install-redis-on-linux/   | For installing Redis   | 
+
+
